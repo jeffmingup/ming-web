@@ -1,24 +1,20 @@
 package ming
 
 import (
-	"fmt"
 	"net/http"
 )
 
-type HandlerFunc func(w http.ResponseWriter, r *http.Request)
+type HandlerFunc func(ctx *Context)
 type Engine struct {
-	router map[string]HandlerFunc
+	router *router
 }
 
 func New() *Engine {
-	return &Engine{
-		router: make(map[string]HandlerFunc),
-	}
+	return &Engine{router: newRouter()}
 }
 
 func (engine *Engine) addRouter(method string, pattern string, handlerFunc HandlerFunc) {
-	key := method + "-" + pattern
-	engine.router[key] = handlerFunc
+	engine.router.addRoute(method, pattern, handlerFunc)
 }
 func (engine *Engine) GET(pattern string, handlerFunc HandlerFunc) {
 	engine.addRouter("GET", pattern, handlerFunc)
@@ -34,12 +30,8 @@ func (engine *Engine) DELETE(pattern string, handlerFunc HandlerFunc) {
 }
 
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	key := r.Method + "-" + r.URL.Path
-	if handlerFunc, ok := engine.router[key]; ok {
-		handlerFunc(w, r)
-	} else {
-		fmt.Fprintf(w, "404:%q\n", r.URL.Path)
-	}
+	c := newContext(w, r)
+	engine.router.handle(c)
 }
 func (engine *Engine) Run(addr string) error {
 	return http.ListenAndServe(addr, engine)
